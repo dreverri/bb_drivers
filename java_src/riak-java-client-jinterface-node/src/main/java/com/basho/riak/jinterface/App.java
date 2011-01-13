@@ -22,6 +22,7 @@ public class App
     private RiakClient riak;
     private OtpNode node;
     private OtpMbox mbox;
+    private FileHandler handler;
 
 
     public static void main( String[] args )
@@ -45,7 +46,11 @@ public class App
     public App(String name, String url)
     {
         try {
+            handler = new FileHandler("riak-java-client.log", true);
+            handler.setLevel(Level.ALL);
+            logger.addHandler(handler);
             logger.setLevel(Level.ALL);
+
             node = new OtpNode(name);
             mbox = node.createMbox("mbox");
             riak = new RiakClient(url);
@@ -65,25 +70,31 @@ public class App
                 OtpErlangAtom cmd = (OtpErlangAtom) msg.elementAt(1);
                 OtpErlangList args = (OtpErlangList) msg.elementAt(2);
 
-                // route cmd
-                String c = cmd.atomValue();
-                if (c.equals("create")) {
-                    create(from, args);
-                } else if (c.equals("read")) {
-                    read(from, args);
-                } else if (c.equals("update")) {
-                    update(from, args);
-                } else if (c.equals("delete")) {
-                    delete(from, args);
-                } else if (c.equals("mapred")) {
-                    mapred(from, args);
-                } else {
-                    logger.warning("unknown command " + c);
-                    mbox.send(from, unknown);
+                try {
+                    // route cmd
+                    String c = cmd.atomValue();
+                    if (c.equals("create")) {
+                        create(from, args);
+                    } else if (c.equals("read")) {
+                        read(from, args);
+                    } else if (c.equals("update")) {
+                        update(from, args);
+                    } else if (c.equals("delete")) {
+                        delete(from, args);
+                    } else if (c.equals("mapred")) {
+                        mapred(from, args);
+                    } else {
+                        logger.warning("unknown command " + c);
+                        mbox.send(from, unknown);
+                    }
+                } catch (Exception e) {
+                    mbox.send(from, error);
+                    throw e;
                 }
             } catch (Exception e) {
                 logger.warning("loop() " + e);
             }
+            handler.flush();
         }
     }
 
@@ -91,21 +102,17 @@ public class App
     // reply :: ok|error
     private void create(OtpErlangPid from, OtpErlangList args)
     {
-        try {
-            String bucketStr = binary_to_string(args, 0);
-            String keyStr = binary_to_string(args, 1);
-            String valueStr = binary_to_string(args, 2);
+        String bucketStr = binary_to_string(args, 0);
+        String keyStr = binary_to_string(args, 1);
+        String valueStr = binary_to_string(args, 2);
 
-            RiakObject o = new RiakObject(bucketStr, keyStr, valueStr);
+        RiakObject o = new RiakObject(bucketStr, keyStr, valueStr);
 
-            StoreResponse r = riak.store(o);
+        StoreResponse r = riak.store(o);
 
-            if (r.isSuccess()) {
-                mbox.send(from, ok);
-            } else {
-                mbox.send(from, error);
-            }
-        } catch (Exception e) {
+        if (r.isSuccess()) {
+            mbox.send(from, ok);
+        } else {
             mbox.send(from, error);
         }
     }
@@ -114,48 +121,41 @@ public class App
     // reply :: ok|notfound|error
     private void read(OtpErlangPid from, OtpErlangList args)
     {
-        try {
-            String bucketStr = binary_to_string(args, 0);
-            String keyStr = binary_to_string(args, 1);
+        String bucketStr = binary_to_string(args, 0);
+        String keyStr = binary_to_string(args, 1);
 
-            FetchResponse r = riak.fetch(bucketStr, keyStr);
+        FetchResponse r = riak.fetch(bucketStr, keyStr);
 
-            if (r.isSuccess()) {
-                mbox.send(from, ok);
-            } else {
-                mbox.send(from, notfound);
-            }
-        } catch (Exception e) {
-            mbox.send(from, error);
+        if (r.isSuccess()) {
+            mbox.send(from, ok);
+        } else {
+            mbox.send(from, notfound);
         }
+
     }
 
     // args :: [Bucket, Key, Value]
     // reply :: ok|notfound|error
     private void update(OtpErlangPid from, OtpErlangList args)
     {
-        try {
-            String bucketStr = binary_to_string(args, 0);
-            String keyStr = binary_to_string(args, 1);
-            String valueStr = binary_to_string(args, 2);
+        String bucketStr = binary_to_string(args, 0);
+        String keyStr = binary_to_string(args, 1);
+        String valueStr = binary_to_string(args, 2);
 
-            FetchResponse fr = riak.fetch(bucketStr, keyStr);
+        FetchResponse fr = riak.fetch(bucketStr, keyStr);
 
-            if (fr.isSuccess()) {
-                RiakObject o = fr.getObject();
-                o.setValue(valueStr);
-                StoreResponse sr = riak.store(o);
+        if (fr.isSuccess()) {
+            RiakObject o = fr.getObject();
+            o.setValue(valueStr);
+            StoreResponse sr = riak.store(o);
 
-                if (sr.isSuccess()) {
-                    mbox.send(from, ok);
-                } else {
-                    mbox.send(from, error);
-                }
+            if (sr.isSuccess()) {
+                mbox.send(from, ok);
             } else {
-                mbox.send(from, notfound);
+                mbox.send(from, error);
             }
-        } catch (Exception e) {
-            mbox.send(from, error);
+        } else {
+            mbox.send(from, notfound);
         }
     }
 
@@ -163,32 +163,24 @@ public class App
     // reply :: ok|error
     private void delete(OtpErlangPid from, OtpErlangList args)
     {
-        try {
-            String bucketStr = binary_to_string(args, 0);
-            String keyStr = binary_to_string(args, 1);
+        String bucketStr = binary_to_string(args, 0);
+        String keyStr = binary_to_string(args, 1);
 
-            riak.delete(bucketStr, keyStr);
-            mbox.send(from, ok);
-        } catch (Exception e) {
-            mbox.send(from, error);
-        }
+        riak.delete(bucketStr, keyStr);
+        mbox.send(from, ok);
     }
 
     // args :: [QueryString]
     // reply :: ok|error
     private void mapred(OtpErlangPid from, OtpErlangList args)
     {
-        try {
-            String queryStr = binary_to_string(args, 0);
+        String queryStr = binary_to_string(args, 0);
 
-            MapReduceResponse r = riak.mapReduce(queryStr);
+        MapReduceResponse r = riak.mapReduce(queryStr);
 
-            if (r.isSuccess()) {
-                mbox.send(from, ok);
-            } else {
-                mbox.send(from, error);
-            }
-        } catch (Exception e) {
+        if (r.isSuccess()) {
+            mbox.send(from, ok);
+        } else {
             mbox.send(from, error);
         }
     }

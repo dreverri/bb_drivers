@@ -73,7 +73,6 @@ run(mapred, KeyGen, _ValueGen, State) ->
                       [{<<"inputs">>, [[State#state.bucket, key_to_binary(Key)]]},
                        {<<"query">>, MapRedQuery}]},
             Msg = {self(), mapred, [list_to_binary(mochijson2:encode(MapRed))]},
-            error_logger:info_msg("Msg: ~p~n", [Msg]),
             State#state.node ! Msg,
             receive
                 ok ->

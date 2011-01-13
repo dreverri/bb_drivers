@@ -1,0 +1,39 @@
+* Description
+
+  This set of Basho Bench drivers is intended to present a consistent
+  set of operations so the same config can be used with all drivers.
+
+* Preload
+
+  A preload driver and config are included which will produce a set of
+  data accessible via both the HTTP and PBC interfaces.
+
+** Lorem Ipsum Value Generator
+
+   A lorem ipsum value generator is provided to produce random lorem
+   ipsum text. This text can be retrieved from Riak via both HTTP and
+   PBC via GET and MapReduce operations.
+
+   This generator was created because of issues retrieving objects
+   with random binary data via MapReduce.
+
+* Consistency
+
+  To allow the re-use of a config across several drivers a consistent
+  set of config options must be used.
+
+  Options:
+  - http
+  - https
+  - pbc
+  - raw_name
+  - mapred_name
+  - mapred_query
+
+  Operations:
+  - create
+  - read
+  - update
+  - delete
+  - mapred
+
