@@ -55,14 +55,20 @@ new(Id) ->
 
 run(mapred, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
-    MapRed = {struct, [{<<"inputs">>, [[State#state.bucket, key_to_binary(Key)]]},
-                       {<<"query">>, State#state.mapred_query}]},
-    State#state.node ! {self(), mapred, mochijson2:encode(MapRed)},
-    receive
-        ok ->
-            {ok, State};
-        error ->
-            {error, "MapReduce failed", State}
+    case State#state.mapred_query of
+        undefined ->
+            {error, "mapred_query undefined", State};
+        MapRedQuery ->
+            MapRed = {struct,
+                      [{<<"inputs">>, [[State#state.bucket, key_to_binary(Key)]]},
+                       {<<"query">>, MapRedQuery}]},
+            State#state.node ! {self(), mapred, mochijson2:encode(MapRed)},
+            receive
+                ok ->
+                    {ok, State};
+                error ->
+                    {error, "MapReduce failed", State}
+            end
     end.
 
 
