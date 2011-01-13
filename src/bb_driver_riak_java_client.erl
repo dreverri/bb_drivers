@@ -33,6 +33,16 @@
 %% ====================================================================
 
 new(Id) ->
+    case net_kernel:start(['basho_bench@127.0.0.1']) of
+        {ok, _} ->
+            error_logger:info_msg("Net kernel started as ~p\n", [node()]);
+        {error, {already_started, _}} ->
+            ok;
+        {error, Reason} ->
+            error_logger:error_msg("Failed to start net_kernel for ~p: ~p\n", [?MODULE, Reason]),
+            halt(1)
+    end,
+
     error_logger:info_msg("starting riak-java-client node~n", []),
     CmdDir = filename:join([priv_dir(), "riak-java-client-jinterface-node"]),
     Cmd = filename:join([CmdDir, "riak-java-client-jinterface-node.sh"]),
@@ -62,11 +72,13 @@ run(mapred, KeyGen, _ValueGen, State) ->
             MapRed = {struct,
                       [{<<"inputs">>, [[State#state.bucket, key_to_binary(Key)]]},
                        {<<"query">>, MapRedQuery}]},
-            State#state.node ! {self(), mapred, mochijson2:encode(MapRed)},
+            Msg = {self(), mapred, [list_to_binary(mochijson2:encode(MapRed))]},
+            error_logger:info_msg("Msg: ~p~n", [Msg]),
+            State#state.node ! Msg,
             receive
                 ok ->
                     {ok, State};
-                error ->
+                _ ->
                     {error, "MapReduce failed", State}
             end
     end.
@@ -86,7 +98,7 @@ key_to_binary(Key) ->
     term_to_binary(Key).
 
 priv_dir() ->
-    case code:priv_dir(qilr) of
+    case code:priv_dir(?MODULE) of
         {error, bad_name} ->
             Path0 = filename:dirname(code:which(?MODULE)),
             Path1 = filename:absname_join(Path0, ".."),
