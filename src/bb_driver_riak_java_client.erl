@@ -36,7 +36,7 @@ new(Id) ->
     error_logger:info_msg("starting riak-java-client node~n", []),
     CmdDir = filename:join([priv_dir(), "riak-java-client-jinterface-node"]),
     Cmd = filename:join([CmdDir, "riak-java-client-jinterface-node.sh"]),
-    Name = "riak-java-client-" ++ Id ++ "@127.0.0.1",
+    Name = "riak-java-client-" ++ integer_to_list(Id) ++ "@127.0.0.1",
     Url = basho_bench_config:get(riak_url, "http://127.0.0.1:8098/riak"),
     Args = [Name, Url],
     case catch erlang:open_port({spawn_executable, Cmd}, [stderr_to_stdout,
