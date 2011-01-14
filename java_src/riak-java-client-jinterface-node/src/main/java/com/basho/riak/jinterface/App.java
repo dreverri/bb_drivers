@@ -3,9 +3,11 @@ import java.util.logging.*;
 import com.ericsson.otp.erlang.*;
 import com.basho.riak.client.RiakClient;
 import com.basho.riak.client.RiakObject;
+import com.basho.riak.client.request.MapReduceBuilder;
 import com.basho.riak.client.response.StoreResponse;
 import com.basho.riak.client.response.FetchResponse;
 import com.basho.riak.client.response.MapReduceResponse;
+import com.basho.riak.client.response.WalkResponse;
 
 /*
   Interface to Riak Java Client for Basho Bench.
@@ -40,13 +42,19 @@ public class App
         */
         String name = new String(args[0]);
         String url = new String(args[1]);
-        new App(name, url).loop();
+        try {
+            new App(name, url).loop();
+        } catch (Exception e) {
+            logger.warning("BOOM! " + e);
+            System.exit(1);
+        }
     }
 
     public App(String name, String url)
     {
         try {
-            handler = new FileHandler("riak-java-client.log", true);
+            handler = new FileHandler("logs/riak-java-client.log", true);
+            handler.setFormatter(new SimpleFormatter());
             handler.setLevel(Level.ALL);
             logger.addHandler(handler);
             logger.setLevel(Level.ALL);
@@ -54,12 +62,14 @@ public class App
             node = new OtpNode(name);
             mbox = node.createMbox("mbox");
             riak = new RiakClient(url);
+            logger.info("node name: " + name);
+            logger.info("url: " + url);
         } catch (Exception e) {
             logger.warning("App() " + e);
         }
     }
 
-    private void loop()
+    private void loop() throws Exception
     {
         boolean running = true;
         while(running) {
@@ -83,6 +93,10 @@ public class App
                         delete(from, args);
                     } else if (c.equals("mapred")) {
                         mapred(from, args);
+                    } else if (c.equals("link_walk")) {
+                        link_walk(from, args);
+                    } else if (c.equals("link_process")) {
+                        mbox.link(from);
                     } else {
                         logger.warning("unknown command " + c);
                         mbox.send(from, unknown);
@@ -91,8 +105,11 @@ public class App
                     mbox.send(from, error);
                     throw e;
                 }
-            } catch (Exception e) {
-                logger.warning("loop() " + e);
+            } catch (OtpErlangExit e) {
+                logger.warning("Linked process exited " + e);
+                running = false;
+            } catch (OtpErlangDecodeException e) {
+                logger.warning("Decoding error " + e);
             }
             handler.flush();
         }
@@ -185,10 +202,37 @@ public class App
         }
     }
 
+    private void link_walk(OtpErlangPid from, OtpErlangList args) throws Exception
+    {
+        String bucketStr = binary_to_string(args, 0);
+        String keyStr = binary_to_string(args, 1);
+        String linkBucket = binary_to_string(args, 2);
+        String linkTag = binary_to_string(args, 3);
+
+        MapReduceBuilder mr = new MapReduceBuilder(riak);
+        mr.addRiakObject(bucketStr, keyStr);
+
+        MapReduceResponse r = mr.link(linkBucket, linkTag, true).submit();
+
+        if (r.isSuccess()) {
+            mbox.send(from, response_tuple(ok, r.getStatusCode()));
+        } else {
+            mbox.send(from, response_tuple(error, r.getStatusCode()));
+        }
+    }
+
     private String binary_to_string(OtpErlangList args, int arg)
     {
         OtpErlangBinary bin = (OtpErlangBinary) args.elementAt(arg);
         String str = new String(bin.binaryValue());
         return str;
+    }
+
+    private OtpErlangTuple response_tuple(OtpErlangAtom a, int status)
+    {
+        OtpErlangInt s = new OtpErlangInt(status);
+        OtpErlangObject[] reply = new OtpErlangObject[]{a, s};
+        OtpErlangTuple tuple = new OtpErlangTuple(reply);
+        return tuple;
     }
 }

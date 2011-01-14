@@ -26,7 +26,9 @@
 
 -record(state, {node,
                 bucket,
-                mapred_query}).
+                link_walk_bucket,
+                link_walk_tag
+               }).
 
 %% ====================================================================
 %% API
@@ -39,69 +41,56 @@ new(Id) ->
         {error, {already_started, _}} ->
             ok;
         {error, Reason} ->
-            error_logger:error_msg("Failed to start net_kernel for ~p: ~p\n", [?MODULE, Reason]),
+            error_logger:error_msg("Failed to start net_kernel for ~p: ~p\n",
+                                   [?MODULE, Reason]),
             halt(1)
     end,
 
-    error_logger:info_msg("starting riak-java-client node~n", []),
-    CmdDir = filename:join([priv_dir(), "riak-java-client-jinterface-node"]),
-    Cmd = filename:join([CmdDir, "riak-java-client-jinterface-node.sh"]),
     Name = "riak-java-client-" ++ integer_to_list(Id) ++ "@127.0.0.1",
     Url = basho_bench_config:get(riak_url, "http://127.0.0.1:8098/riak"),
     Args = [Name, Url],
-    case catch erlang:open_port({spawn_executable, Cmd}, [stderr_to_stdout,
-                                                          {args, Args},
-                                                          {cd, CmdDir}]) of
-        {'EXIT', Error} ->
-            error_logger:error_msg("Could not start riak-java-client node: ~p~n", [Error]),
-            {stop, Error};
-        Port when is_port(Port) ->
+    case riak_java_client:start_link(Args) of
+        {ok, _} ->
+            Node = {mbox, list_to_atom(Name)},
             Bucket  = basho_bench_config:get(riak_bucket, <<"test">>),
-            MapRedQuery = basho_bench_config:get(mapred_query, undefined),
-            {ok, #state{node = {mbox, list_to_atom(Name)},
+            LinkWalkBucket  = basho_bench_config:get(link_walk_bucket, <<"link">>),
+            LinkWalkTag  = basho_bench_config:get(link_walk_tag, <<"_">>),
+
+            {ok, #state{node = Node,
                         bucket = Bucket,
-                        mapred_query = MapRedQuery}}
+                        link_walk_bucket = LinkWalkBucket,
+                        link_walk_tag = LinkWalkTag
+                       }};
+        {error, Error} ->
+            error_logger:error_msg("Could not start riak-java-client node: ~p~n",
+                                   [Error]),
+            {stop, Error}
     end.
 
-run(mapred, KeyGen, _ValueGen, State) ->
+run(link_walk, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
-    case State#state.mapred_query of
-        undefined ->
-            {error, "mapred_query undefined", State};
-        MapRedQuery ->
-            MapRed = {struct,
-                      [{<<"inputs">>, [[State#state.bucket, key_to_binary(Key)]]},
-                       {<<"query">>, MapRedQuery}]},
-            Msg = {self(), mapred, [list_to_binary(mochijson2:encode(MapRed))]},
-            State#state.node ! Msg,
-            receive
-                ok ->
-                    {ok, State};
-                _ ->
-                    {error, "MapReduce failed", State}
-            end
+    Bucket = State#state.link_walk_bucket,
+    Tag = State#state.link_walk_tag,
+    Msg = {self(), link_walk, [State#state.bucket, key_to_binary(Key), Bucket, Tag]},
+    error_logger:info_msg("node: ~p", [State#state.node]),
+    State#state.node ! Msg,
+    wait_for_reply(State).
+
+wait_for_reply(State) ->
+    receive
+        {ok, _} ->
+            {ok, State};
+        {error, Reason} ->
+            {error, Reason, State};
+        error ->
+            {error, "No reason given", State}
     end.
 
-
-%% Convert different key types to binaries
+%% Convert list and integers to binaries
 %% "1" -> <<"1">>
 %% 1 -> <<"1">>
 %% Useful for accessing the object via HTTP
 key_to_binary(Key) when is_list(Key) ->
     list_to_binary(Key);
 key_to_binary(Key) when is_integer(Key) ->
-    list_to_binary(integer_to_list(Key));
-key_to_binary(Key) when is_binary(Key) ->
-    Key;
-key_to_binary(Key) ->
-    term_to_binary(Key).
-
-priv_dir() ->
-    case code:priv_dir(?MODULE) of
-        {error, bad_name} ->
-            Path0 = filename:dirname(code:which(?MODULE)),
-            Path1 = filename:absname_join(Path0, ".."),
-            filename:join([Path1, "priv"]);
-        Path ->
-            filename:absname(Path)
-    end.
+    list_to_binary(integer_to_list(Key)).
