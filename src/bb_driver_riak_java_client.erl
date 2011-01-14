@@ -72,7 +72,6 @@ run(link_walk, KeyGen, _ValueGen, State) ->
     Bucket = State#state.link_walk_bucket,
     Tag = State#state.link_walk_tag,
     Msg = {self(), link_walk, [State#state.bucket, key_to_binary(Key), Bucket, Tag]},
-    error_logger:info_msg("node: ~p", [State#state.node]),
     State#state.node ! Msg,
     wait_for_reply(State).
 
