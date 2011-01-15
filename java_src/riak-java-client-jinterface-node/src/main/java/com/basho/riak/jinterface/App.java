@@ -209,10 +209,12 @@ public class App
         String linkBucket = binary_to_string(args, 2);
         String linkTag = binary_to_string(args, 3);
 
-        MapReduceBuilder mr = new MapReduceBuilder(riak);
-        mr.addRiakObject(bucketStr, keyStr);
+        //MapReduceBuilder mr = new MapReduceBuilder(riak);
+        //mr.addRiakObject(bucketStr, keyStr);
 
-        MapReduceResponse r = mr.link(linkBucket, linkTag, true).submit();
+        //MapReduceResponse r = mr.link(linkBucket, linkTag, true).submit();
+        String walkSpec = linkBucket + "," + linkTag + ",1";
+        WalkResponse r = riak.walk(bucketStr, keyStr, walkSpec);
 
         if (r.isSuccess()) {
             mbox.send(from, response_tuple(ok, r.getStatusCode()));
