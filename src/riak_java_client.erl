@@ -80,7 +80,11 @@ start_riak_java_client_node(Cmd, Options) ->
     case catch erlang:open_port({spawn_executable, Cmd}, Options) of
         {'EXIT', Error} ->
             {error, Error};
-        _ ->
-            timer:sleep(500),
-            ok
+        Port ->
+            receive
+                {Port, {data, _}} ->
+                    ok
+            after 5000 ->
+                    {error, timeout}
+            end
     end.
