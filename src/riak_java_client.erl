@@ -41,7 +41,6 @@ init([Name|_]=Args) ->
         ok ->
             Node = {mbox, list_to_atom(Name)},
             Node ! {self(), link_process},
-            error_logger:info_msg("Asked riak-java-client node to link to worker~n"),
             {ok, Args};
         {error, Error} ->
             {stop, Error}
@@ -82,6 +81,6 @@ start_riak_java_client_node(Cmd, Options) ->
         {'EXIT', Error} ->
             {error, Error};
         _ ->
-            timer:sleep(1000),
+            timer:sleep(500),
             ok
     end.

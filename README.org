@@ -5,8 +5,10 @@
 
 * Preload
 
-  A preload driver and config are included which will produce a set of
+  A preload driver and config are included which will produce sample
   data accessible via both the HTTP and PBC interfaces.
+
+  ./basho_bench configs/preload.config
 
 ** Lorem Ipsum Value Generator
 
@@ -23,17 +25,35 @@
   set of config options must be used.
 
   Options:
-  - http
-  - https
-  - pbc
-  - raw_name
-  - mapred_name
-  - mapred_query
+  - http - list of urls (may contain https)
+  - pbc - list of ips and ports
+  - raw_name - "riak"
+  - mapred_name - "mapred"
+  - link_walk_bucket - <<"link">>
+  - link_walk_tag - <<"_">>
+  - r - 2
+  - w - 2
+  - dw - 2
 
   Operations:
   - create
   - read
   - update
   - delete
-  - mapred
+  - link_walk
 
+  Configs:
+  - 80/20 read/write split, pareto key distribution
+  - 80/20 read/write split, uniform key distribution
+  - link walking
+
+  The goal is to have a limited set of config files that can be used
+  for several drivers.
+
+  Drivers:
+  - riak_erlang_client
+  - riak_erlang_http_client
+  - riak_java_client
+  - riak_python_client
+  - riak_ruby_client
+  - riak_php_client
