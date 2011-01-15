@@ -26,14 +26,16 @@
 
   Options:
   - http - list of urls (may contain https)
-  - pbc - list of ips and ports
+  - pb - list of ips and ports
   - raw_name - "riak"
   - mapred_name - "mapred"
+  - bucket - <<"test">>
   - link_walk_bucket - <<"link">>
   - link_walk_tag - <<"_">>
   - r - 2
   - w - 2
   - dw - 2
+  - rw - 2
 
   Operations:
   - create
@@ -52,7 +54,6 @@
 
   Drivers:
   - riak_erlang_client
-  - riak_erlang_http_client
   - riak_java_client
   - riak_python_client
   - riak_ruby_client
