@@ -45,11 +45,15 @@ end
 
 node = RiakRubyNode.new()
 
-receive do |f|
-  f.when([:link_walk, String, String, String, String]) do |b, k, lb, t|
-    reply = node.walk(b, k, lb, t)
-    #reply = node.mapred_walk(b, k, lb, t)
-    f.send!(reply) # :ok or :error
-    f.receive_loop
+begin
+  receive do |f|
+    f.when([:link_walk, String, String, String, String]) do |b, k, lb, t|
+      reply = node.walk(b, k, lb, t)
+      #reply = node.mapred_walk(b, k, lb, t)
+      f.send!(reply) # :ok or :error
+      f.receive_loop
+    end
   end
+rescue Errno::EPIPE
+  # controlling erlang process exited
 end
