@@ -1,7 +1,6 @@
 * Description
 
-  This set of Basho Bench drivers is intended to present a consistent
-  set of operations so the same config can be used with all drivers.
+  Basho Bench drivers to measure throughput and latency of riak client libraries.
 
 * Preload
 
@@ -19,10 +18,40 @@
    This generator was created because of issues retrieving objects
    with random binary data via MapReduce.
 
-* Consistency
+** Linked Data
 
-  To allow the re-use of a config across several drivers a consistent
-  set of config options must be used.
+   The preload driver will create objects with a random number of
+   linked objects. Regular objects are created in the "test" bucket
+   while linked objects are created in the "link" bucket.
+
+* Drivers
+
+** bb_driver_riak_java_client
+
+   Options:
+   - riak_url - "http://127.0.0.1:8098/riak"
+   - riak_bucket - <<"test">>
+   - link_walk_bucket - <<"link">>
+   - link_walk_tag - <<"_">>
+
+   Operations:
+   - link_walk
+
+** bb_driver_riak_ruby_client
+
+   Options:
+   - riak_bucket - <<"test">>
+   - link_walk_bucket - <<"link">>
+   - link_walk_tag - <<"_">>
+
+   Operations:
+   - link_walk
+
+** Future Work
+
+  To allow the re-use of a single config across several drivers a consistent
+  set of config options should be used. The above drivers should be
+  adjusted to respect the following options.
 
   Options:
   - http - list of urls (may contain https)
@@ -43,14 +72,6 @@
   - update
   - delete
   - link_walk
-
-  Configs:
-  - 80/20 read/write split, pareto key distribution
-  - 80/20 read/write split, uniform key distribution
-  - link walking
-
-  The goal is to have a limited set of config files that can be used
-  for several drivers.
 
   Drivers:
   - riak_erlang_client
