@@ -25,6 +25,22 @@ class RiakRubyNode
       :error
     end
   end
+
+  def mapred_walk(bucket, key, lbucket, tag)
+    begin
+      results = Riak::MapReduce.new(@client).
+        add(bucket, key).
+        link(:bucket=>lbucket, :tag=>tag).
+        map(["riak_kv_mapreduce", "map_object_value"]).run
+      if results
+        :ok
+      else
+        :error
+      end
+    rescue
+      :error
+    end
+  end
 end
 
 node = RiakRubyNode.new()
@@ -32,6 +48,7 @@ node = RiakRubyNode.new()
 receive do |f|
   f.when([:link_walk, String, String, String, String]) do |b, k, lb, t|
     reply = node.walk(b, k, lb, t)
+    #reply = node.mapred_walk(b, k, lb, t)
     f.send!(reply) # :ok or :error
     f.receive_loop
   end
