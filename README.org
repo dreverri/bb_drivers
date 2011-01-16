@@ -39,6 +39,17 @@
 
 ** bb_driver_riak_ruby_client
 
+   This driver depends on the following Rubygems:
+   - riak-client
+   - erlectricity
+
+   A Gemfile is provided for easy installation:
+
+#+BEGIN_SRC bash
+   cd priv/riak-ruby-client-node
+   bundle install # http://gembundler.com/
+#+END_SRC
+
    Options:
    - riak_bucket - <<"test">>
    - link_walk_bucket - <<"link">>
